@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+output/
+!output/.gitkeep
+logs/
+*.log
+.sisyphus/evidence/
+tmp_chrome_profile*/
+.env
+*.egg-info/
+dist/
+build/
