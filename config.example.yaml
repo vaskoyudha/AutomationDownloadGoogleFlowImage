@@ -1,0 +1,35 @@
+# Google Flow Image Generator - Configuration File
+# This file demonstrates all available configuration options.
+# Copy this file to config.yaml and customize as needed.
+
+# Output directory for generated images
+output_dir: output
+
+# Default number of images to generate per prompt
+default_count: 4
+
+# Aspect ratio for generated images (e.g., 1:1, 16:9, 4:3)
+aspect_ratio: "1:1"
+
+# Model to use for generation (e.g., auto, specific-model-name)
+model: auto
+
+# Delay between generations (in seconds)
+delay_between_generations: 10
+
+# Typing speed configuration (characters per second)
+typing_speed_min: 50
+typing_speed_max: 150
+
+# Click delay configuration (in milliseconds)
+click_delay_min: 200
+click_delay_max: 500
+
+# Generation timeout (in seconds)
+generation_timeout: 120
+
+# Maximum number of retries on failure
+max_retries: 3
+
+# Time to wait when quota is exceeded (in seconds)
+quota_wait_time: 60
