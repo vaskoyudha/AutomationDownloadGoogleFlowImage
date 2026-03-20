@@ -6,15 +6,17 @@ generation triggering, and result detection on labs.google/flow.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import random
-from typing import Protocol
+from typing import Protocol, TypedDict
 
 from src.selectors import FlowSelectors, Selector
-from src.utils import human_delay
+from src.utils import human_delay, retry_with_backoff
 
 
 logger = logging.getLogger("flow_automation")
+RETRY_PATTERN = retry_with_backoff
 
 
 class FlowPage:
@@ -190,6 +192,92 @@ class FlowPage:
         if not clicked:
             raise RuntimeError("Generate/Create button not found")
 
+    async def _inter_generation_delay(self) -> None:
+        base_seconds = self._int_config(
+            "delay_between_generations", "delay_between_generations", 10
+        )
+        base_ms = max(0, base_seconds * 1000)
+        min_ms = int(base_ms * 0.7)
+        max_ms = int(base_ms * 1.3)
+        if min_ms > max_ms:
+            min_ms, max_ms = max_ms, min_ms
+        human_delay(min_ms, max_ms)
+
+    async def generate_with_resilience(
+        self, prompt: str, settings: "GenerationSettings"
+    ) -> bool:
+        max_retries = max(1, self._int_config("max_retries", "max_retries", 3))
+        quota_wait_time = max(
+            0, self._int_config("quota_wait_time", "quota_wait_time", 60)
+        )
+        base_backoff: float = float(
+            max(1, self._int_config("retry_base_delay", "retry_base_delay", 2))
+        )
+
+        await self.enter_prompt(prompt)
+        if settings:
+            await self.configure_settings(**settings)
+
+        attempt = 0
+        while attempt < max_retries:
+            try:
+                if attempt > 0:
+                    await self._inter_generation_delay()
+
+                await self.click_generate()
+
+                if await self.detect_captcha():
+                    logger.warning(
+                        "CAPTCHA detected during generation; waiting for manual solve"
+                    )
+                    await self.handle_captcha()
+                    await self.click_generate()
+
+                if await self.detect_safety_filter():
+                    logger.warning("Safety filter detected for prompt; skipping prompt")
+                    return False
+
+                if await self.detect_quota_exceeded():
+                    logger.warning(
+                        "Quota exceeded detected; waiting %ss before retry",
+                        quota_wait_time,
+                    )
+                    if attempt >= max_retries - 1:
+                        return False
+                    await asyncio.sleep(quota_wait_time)
+                    attempt += 1
+                    continue
+
+                if await self.wait_for_generation():
+                    return True
+
+                if attempt >= max_retries - 1:
+                    return False
+
+                backoff = base_backoff * (2.0**attempt)
+                logger.warning(
+                    "Generation did not complete; retrying in %.1fs (attempt %s/%s)",
+                    backoff,
+                    attempt + 1,
+                    max_retries,
+                )
+                await asyncio.sleep(backoff)
+                attempt += 1
+            except KeyboardInterrupt:
+                raise
+            except Exception as exc:
+                if attempt >= max_retries - 1:
+                    logger.warning("Generation failed after retries: %s", exc)
+                    return False
+                backoff = base_backoff * (2.0**attempt)
+                logger.warning(
+                    "Generation attempt failed (%s); retrying in %.1fs", exc, backoff
+                )
+                await asyncio.sleep(backoff)
+                attempt += 1
+
+        return False
+
     async def wait_for_generation(self, timeout: int | None = None) -> bool:
         timeout_s = timeout
         if timeout_s is None:
@@ -277,3 +365,9 @@ class PageProtocol(Protocol):
         timeout: int,
         state: str | None = None,
     ) -> ElementProtocol | None: ...
+
+
+class GenerationSettings(TypedDict, total=False):
+    count: int
+    aspect_ratio: str
+    model: str

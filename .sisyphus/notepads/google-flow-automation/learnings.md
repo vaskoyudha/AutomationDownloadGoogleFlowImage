@@ -122,3 +122,27 @@
 - Added tests/test_downloader.py with 8 tests: path formatting (001/099/999), format detection (png/jpeg/webp/unknown), duplicate handling increment behavior
 - LSP diagnostics: clean for src/downloader.py and tests/test_downloader.py
 - Verification commands passed: pytest tests/test_downloader.py -v (8 passed), full suite (61 passed), required python snippet assertions passed
+
+## [2026-03-20] Task 9 DONE - Error handling & resilience
+- Added FlowPage.generate_with_resilience(prompt, settings) to orchestrate prompt entry, optional settings config, generation trigger, CAPTCHA handling, safety filter fail-fast, quota waiting/retry, and generation wait retries with exponential backoff.
+- Added FlowPage._inter_generation_delay() using jitter window human_delay(base*0.7, base*1.3) where base is delay_between_generations seconds converted to milliseconds.
+- Resilience method behavior details:
+  * Calls enter_prompt(prompt) first and configure_settings(**settings) only when settings is non-empty.
+  * On CAPTCHA detection: logs warning, calls handle_captcha(), then retries click_generate() immediately.
+  * On safety filter detection: logs warning and returns False without waiting for generation.
+  * On quota exceeded: logs warning, waits quota_wait_time (default 60s), retries until max_retries exhausted.
+  * On wait_for_generation() False or recoverable exceptions: retries up to max_retries with exponential backoff (2^attempt pattern).
+  * KeyboardInterrupt is explicitly re-raised.
+- Imported retry_with_backoff in src/flow.py as required and bound alias RETRY_PATTERN to ensure import remains intentionally referenced while manual in-method retry loop is used.
+- Added tests/test_resilience.py with AsyncMock-based unit tests (no real browser):
+  * retry_with_backoff succeeds on Nth try
+  * human_delay jitter sampling within expected range
+  * generate_with_resilience returns False when safety filter is detected
+  * generate_with_resilience returns True on happy path
+  * generate_with_resilience retries on wait_for_generation False with expected backoff sequence
+  * inter-generation jitter path validated through patched human_delay call args
+- Verification completed:
+  * .venv/bin/python -m pytest tests/test_resilience.py -v -> 6 passed
+  * .venv/bin/python -m pytest tests/ -q -> 67 passed (regression suite remains green)
+  * .venv/bin/python -c "from src.flow import FlowPage; assert hasattr(FlowPage, 'generate_with_resilience'); print('resilience method OK')" -> success
+  * LSP diagnostics clean for changed files: src/flow.py and tests/test_resilience.py
