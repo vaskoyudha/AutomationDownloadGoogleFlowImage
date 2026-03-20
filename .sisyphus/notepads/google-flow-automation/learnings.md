@@ -111,3 +111,14 @@
 - Verified selector object import shape and FlowPage method presence: 10/10 required methods detected by runtime check
 - LSP diagnostics for src/flow.py: clean (no diagnostics)
 - Regression: pytest suite still passes (53/53)
+
+## [2026-03-20] Task 8 DONE - ImageDownloader implementation
+- Implemented src/downloader.py ImageDownloader with required methods: __init__, download_all_images, _download_single_image, _build_save_path, _detect_image_format
+- download_all_images() now uses flow.get_generated_images(), sanitize_prompt(prompt), and today date string (YYYY-MM-DD), then downloads sequentially with 1-based index
+- _download_single_image() strategy order implemented exactly: src/request.get+body -> expect_download+save_as -> element.screenshot fallback
+- Added duplicate filename protection in all save paths by incrementing index until os.path.exists(path) is False
+- Uses ensure_output_dir(output_dir, slug) before saving any file
+- Magic-byte detection implemented: PNG (8-byte signature), JPEG (FF D8 FF), WebP (RIFF....WEBP), unknown defaults to png
+- Added tests/test_downloader.py with 8 tests: path formatting (001/099/999), format detection (png/jpeg/webp/unknown), duplicate handling increment behavior
+- LSP diagnostics: clean for src/downloader.py and tests/test_downloader.py
+- Verification commands passed: pytest tests/test_downloader.py -v (8 passed), full suite (61 passed), required python snippet assertions passed
