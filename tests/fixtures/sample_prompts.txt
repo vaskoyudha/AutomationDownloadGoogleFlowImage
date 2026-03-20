@@ -1,0 +1,7 @@
+# Google Flow Automation - Sample Prompts
+# Lines starting with # are comments and will be skipped
+
+A majestic mountain at sunrise with golden light
+An underwater coral reef scene with colorful fish
+
+A futuristic city skyline at night with neon lights

@@ -5,6 +5,8 @@ default values, and config merging.
 """
 
 import argparse
+import json
+import os
 import yaml
 from typing import Optional, Dict, Any
 
@@ -131,3 +133,56 @@ def merge_config(config: Dict[str, Any], args: argparse.Namespace) -> Dict[str, 
         merged["headless"] = args.headless
 
     return merged
+
+
+def parse_batch_file(path: str) -> list:
+    """Parse a batch prompt file (.txt or .json).
+
+    .txt format: one prompt per line, skip empty lines and lines starting with #
+    .json format: array of strings OR array of objects with "prompt" key
+
+    Returns list of dicts: [{"prompt": str, "count": int|None, ...}, ...]
+
+    Args:
+        path: Path to batch file (.txt or .json)
+
+    Returns:
+        List of dictionaries, each containing at least a "prompt" key.
+
+    Raises:
+        FileNotFoundError: If batch file doesn't exist.
+        ValueError: If file format is unsupported or JSON is invalid.
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Batch file not found: {path}")
+
+    ext = os.path.splitext(path)[1].lower()
+
+    if ext == ".txt":
+        results = []
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    results.append({"prompt": line})
+        return results
+
+    elif ext == ".json":
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, list):
+            raise ValueError(f"JSON batch file must contain a list, got: {type(data)}")
+        results = []
+        for item in data:
+            if isinstance(item, str):
+                results.append({"prompt": item})
+            elif isinstance(item, dict):
+                if "prompt" not in item:
+                    raise ValueError(f"JSON object missing 'prompt' key: {item}")
+                results.append(item)
+            else:
+                raise ValueError(f"Invalid item in JSON batch: {item}")
+        return results
+
+    else:
+        raise ValueError(f"Unsupported batch file format: {ext}. Use .txt or .json")

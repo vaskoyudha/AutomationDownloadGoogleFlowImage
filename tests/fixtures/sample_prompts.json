@@ -1,0 +1,5 @@
+[
+  {"prompt": "A majestic mountain at sunrise", "count": 2, "aspect_ratio": "16:9"},
+  {"prompt": "An underwater coral reef", "count": 4},
+  {"prompt": "A futuristic city skyline", "aspect_ratio": "9:16", "model": "auto"}
+]
