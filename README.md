@@ -176,6 +176,42 @@ The tool is built with a modular architecture:
 - `src/config.py`: Centralized configuration and argument parsing.
 - `src/reporter.py`: Tracks session progress and generates final summaries.
 
+## Project Structure
+
+```
+AutomationDownloadGoogleFlowImage/
+├── generate.py              # CLI entry point — run this to generate images
+├── pyproject.toml           # Project metadata and dependencies
+├── config.example.yaml      # Template config — copy to config.yaml
+├── LICENSE                  # MIT License
+├── src/
+│   ├── browser.py           # Chrome profile management, Playwright session
+│   ├── flow.py              # Google Flow page interactions (navigate, prompt, generate)
+│   ├── downloader.py        # Image detection, download strategies, organized saving
+│   ├── selectors.py         # All UI selectors in one place (easy to update)
+│   ├── config.py            # YAML config loading, CLI argument parsing, batch parsing
+│   ├── utils.py             # Filename sanitization, logging, retry, human delays
+│   └── reporter.py          # Session progress tracking and summary reports
+├── tests/
+│   ├── test_config.py       # Config and batch parsing tests (15 tests)
+│   ├── test_utils.py        # Utility function tests (21 tests)
+│   ├── test_batch.py        # Batch file parser tests (10 tests)
+│   ├── test_browser.py      # Browser manager tests (7 tests)
+│   ├── test_downloader.py   # Image downloader tests (8 tests)
+│   ├── test_resilience.py   # Retry and resilience tests (6 tests)
+│   ├── test_reporter.py     # Session reporter tests (12 tests)
+│   └── fixtures/            # Test fixture files (sample prompts)
+└── output/                  # Generated images saved here (gitignored)
+```
+
+## Running Tests
+
+```bash
+.venv/bin/python -m pytest tests/ -v
+```
+
+All 79 unit tests cover pure logic (config parsing, filename sanitization, retry behavior, batch file formats, image format detection, session reporting). Browser integration tests require a live Chrome session and are marked `@pytest.mark.integration`.
+
 ## License
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
