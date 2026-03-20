@@ -147,6 +147,30 @@
   * .venv/bin/python -c "from src.flow import FlowPage; assert hasattr(FlowPage, 'generate_with_resilience'); print('resilience method OK')" -> success
   * LSP diagnostics clean for changed files: src/flow.py and tests/test_resilience.py
 
+## [2026-03-20] Task 10 DONE - Session Summary Reporter + Full generate.py pipeline
+- Created src/reporter.py with SessionReporter class
+  * __init__(config): records start timestamp, empty results list
+  * record_success(prompt, images, elapsed): stores status="success" dict
+  * record_failure(prompt, error, retries): stores status="failure" dict
+  * record_skip(prompt, reason): stores status="skip" dict
+  * get_summary(): returns {total, successful, failed, skipped, total_images, total_time}
+  * print_summary(): formatted output with ═══ borders, emoji labels, time as Xm YYs
+  * save_log(log_dir="logs"): creates dir, writes JSON with session_start, session_end, results, summary
+  * JSON log filename: session_{YYYY-MM-DD_HHMMSS}.log
+- Rewrote generate.py as full async pipeline using asyncio.run(main())
+  * Imports: BrowserManager, FlowPage, FlowSelectors, ImageDownloader, SessionReporter, setup_logging, parse_args/load_config/merge_config/parse_batch_file
+  * If neither --prompt nor --batch given: parse_args(["--help"]) to print help, then sys.exit(1)
+  * Builds base_settings from config (default_count, aspect_ratio, model); removes None values
+  * async with BrowserManager(config) as (ctx, page) → FlowPage, ImageDownloader
+  * Per-prompt: time with time.monotonic(), call generate_with_resilience, download on success, record result
+  * KeyboardInterrupt caught → print "Interrupted by user"
+  * finally: reporter.print_summary() + reporter.save_log()
+- Protocol type mismatch between FlowPage.ElementProtocol and ImageDownloader.ElementProtocol requires # type: ignore[arg-type] on download_all_images call — runtime works fine (structural typing, both protocols share same interface)
+- Created tests/test_reporter.py with 12 test cases across 5 classes: all PASS
+- Full test suite: 79 passed (67 original + 12 new)
+- generate.py --help exits 0, shows all options
+- python -c "import generate; print('Pipeline OK')" exits 0
+
 ## [2026-03-20] Task 11 DONE - Documentation
 - Created professional README.md with comprehensive sections: Features, Quick Start, Prerequisites, Installation, Chrome Profile Setup, Usage, Configuration, Batch File Format, Output Structure, Troubleshooting, How It Works, and License.
 - README includes specific CLI usage examples, configuration tables, and 5-step Chrome profile guide.
