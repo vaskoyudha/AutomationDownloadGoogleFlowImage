@@ -86,3 +86,28 @@
 - close(): closes context, stops playwright, calls _cleanup_temp_profile()
 - async context manager (__aenter__/__aexit__) supported
 - 7 tests passing
+
+## [Task 6 DONE] Selector abstraction layer
+- FlowSelectors class in src/selectors.py with Selector dataclass
+- 25 selectors defined covering: input, buttons, settings, results, download, status, errors, navigation
+- Selector dataclass: css, text (Optional), aria (Optional), description fields
+- Browser inspection result: Google Flow landing page loads but editor requires authentication (login wall)
+  * Attempted direct URLs: /editor, /create routes all redirect to landing or login
+  * Headless chromium + page timeout constraints prevent auth flow completion
+  * All selectors marked NEEDS VERIFICATION except those based on semantic UI patterns (INFERRED)
+- get_selector(name, strategy) utility for retrieving by name and strategy (css/text/aria)
+- list_all_selectors() utility returns dict of all available Selector objects
+- Coverage: 25 total selectors, all with CSS, 19 with aria fallback, 6 with text fallback
+- All 9 required selectors verified present: PROMPT_INPUT, GENERATE_BUTTON, SETTINGS_PANEL_TRIGGER, GENERATED_IMAGE_CONTAINER, IMAGE_DOWNLOAD_BUTTON, LOADING_INDICATOR, CAPTCHA_OVERLAY, CONSENT_DIALOG, SAFETY_FILTER_WARNING
+- Commit fd14619: "feat(selectors): add UI selector abstraction layer for Google Flow"
+
+## [2026-03-20] Task 7 DONE - FlowPage interaction layer
+- Implemented src/flow.py FlowPage with required methods: navigate, dismiss_consent, enter_prompt, configure_settings, click_generate, wait_for_generation, detect_captcha, handle_captcha, detect_safety_filter, detect_quota_exceeded, get_generated_images
+- No hardcoded Flow UI selectors in interactions; all selector lookups are sourced from FlowSelectors (css/aria/text fallback strategy)
+- Human-like delays enforced via human_delay before navigation, clicks, key presses, and typing interactions
+- Prompt entry uses page.keyboard.type(..., delay=random between typing min/max config), not page.fill
+- configure_settings gracefully warns and continues when settings controls are unavailable/auth-gated
+- wait_for_generation waits for loading indicator appearance/disappearance and then completion signal (fallback to generated image presence)
+- Verified selector object import shape and FlowPage method presence: 10/10 required methods detected by runtime check
+- LSP diagnostics for src/flow.py: clean (no diagnostics)
+- Regression: pytest suite still passes (53/53)
