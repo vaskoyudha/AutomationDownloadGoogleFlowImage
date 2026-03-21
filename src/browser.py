@@ -74,6 +74,14 @@ class BrowserManager:
             f"Searched paths:\n" + "\n".join(f"  - {p}" for p in CHROME_PROFILE_PATHS)
         )
 
+    def _find_chrome_profile_path(self) -> Optional[str]:
+        if self.chrome_profile_path and os.path.isdir(self.chrome_profile_path):
+            return self.chrome_profile_path
+        for path in CHROME_PROFILE_PATHS:
+            if os.path.isdir(path):
+                return path
+        return None
+
     def _copy_profile_to_temp(self, profile_path: str) -> str:
         """Copy Chrome profile to a temporary directory.
 
@@ -99,6 +107,35 @@ class BrowserManager:
             shutil.rmtree(self._temp_profile_dir, ignore_errors=True)
             logger.debug("Cleaned up temp profile: %s", self._temp_profile_dir)
             self._temp_profile_dir = None
+
+    def _sync_profile_back(self) -> None:
+        """Sync session cookies from temp profile back to original Chrome profile.
+
+        After interactive login, new cookies are written to the temp profile with
+        basic (unencrypted) storage. Syncing them back means subsequent runs won't
+        need interactive login.
+        """
+        if not self._temp_profile_dir:
+            return
+        original = self._find_chrome_profile_path()
+        if not original or not os.path.isdir(original):
+            return
+        temp_default = os.path.join(self._temp_profile_dir, "Default")
+        if not os.path.isdir(temp_default):
+            return
+        for filename in ("Cookies", "Cookies-journal", "Local State"):
+            src = os.path.join(temp_default, filename)
+            if os.path.isfile(src):
+                dst = os.path.join(original, filename)
+                try:
+                    shutil.copy2(src, dst)
+                    logger.debug("Synced %s back to original profile", filename)
+                except Exception as exc:
+                    logger.warning(
+                        "Could not sync %s back to original profile: %s",
+                        filename,
+                        exc,
+                    )
 
     async def launch(self):
         """Launch browser with Playwright persistent context.
@@ -180,6 +217,7 @@ class BrowserManager:
         if self._playwright:
             await self._playwright.stop()
             self._playwright = None
+        self._sync_profile_back()
         self._cleanup_temp_profile()
 
     async def __aenter__(self):
