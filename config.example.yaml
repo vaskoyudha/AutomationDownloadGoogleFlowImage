@@ -5,6 +5,8 @@
 # Output directory for generated images
 output_dir: output
 
+# use_cdp: false  # Set to true to connect to an already-running Chrome at --remote-debugging-port=9222
+
 # Default number of images to generate per prompt
 default_count: 4
 

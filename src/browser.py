@@ -39,6 +39,7 @@ class BrowserManager:
         """
         self.config = config
         self.headless = config.get("headless", False)
+        self.use_cdp = config.get("use_cdp", False)
         self.chrome_profile_path = config.get("chrome_profile_path")
         self._temp_profile_dir: Optional[str] = None
         self._playwright = None
@@ -109,6 +110,21 @@ class BrowserManager:
             "playwright.async_api"
         ).async_playwright
 
+        if self.use_cdp:
+            self._playwright = await async_playwright().start()
+            browser = await self._playwright.chromium.connect_over_cdp(
+                "http://localhost:9222"
+            )
+            if browser.contexts:
+                self._context = browser.contexts[0]
+            else:
+                self._context = await browser.new_context()
+            if self._context.pages:
+                page = self._context.pages[0]
+            else:
+                page = await self._context.new_page()
+            return self._context, page
+
         profile_path = self._find_chrome_profile()
         self._copy_profile_to_temp(profile_path)
         user_data_dir = self._temp_profile_dir
@@ -121,7 +137,12 @@ class BrowserManager:
                 channel="chrome",
                 headless=self.headless,
                 viewport={"width": 1920, "height": 1080},
-                args=["--disable-blink-features=AutomationControlled"],
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--password-store=basic",
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                ],
                 slow_mo=50,
             )
         except Exception as e:
@@ -132,7 +153,12 @@ class BrowserManager:
                         user_data_dir=user_data_dir,
                         headless=self.headless,
                         viewport={"width": 1920, "height": 1080},
-                        args=["--disable-blink-features=AutomationControlled"],
+                        args=[
+                            "--disable-blink-features=AutomationControlled",
+                            "--password-store=basic",
+                            "--no-sandbox",
+                            "--disable-setuid-sandbox",
+                        ],
                         slow_mo=50,
                     )
                 )

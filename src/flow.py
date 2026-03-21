@@ -87,10 +87,82 @@ class FlowPage:
         await element.click()
         return True
 
+    async def _prompt_interactive_login(self, wait_seconds: int = 60) -> None:
+        print(
+            "\n⚠️  Not logged in! Please log into your Google account in the browser window, then press Enter to continue..."
+        )
+        _ = input()
+        deadline = asyncio.get_running_loop().time() + wait_seconds
+        while asyncio.get_running_loop().time() < deadline:
+            if "accounts.google.com" not in self.page.url:
+                break
+            await asyncio.sleep(1)
+        else:
+            raise RuntimeError(
+                "Still on Google sign-in page after waiting. Please log in fully before pressing Enter next time."
+            )
+
     async def navigate(self) -> None:
         self._human_click_delay()
-        await self.page.goto("https://labs.google/flow", wait_until="domcontentloaded")
+        await self.page.goto(
+            "https://labs.google/fx/tools/flow", wait_until="domcontentloaded"
+        )
         await self.dismiss_consent()
+
+        if "accounts.google.com" in self.page.url:
+            await self._prompt_interactive_login(wait_seconds=30)
+
+        async def editor_ready(timeout_s: float) -> bool:
+            deadline = asyncio.get_running_loop().time() + timeout_s
+            while asyncio.get_running_loop().time() < deadline:
+                prompt_input = await self._query_with_fallback(
+                    self.selectors.PROMPT_INPUT
+                )
+                if prompt_input:
+                    return True
+                prompt_textarea = await self._query_with_fallback(
+                    self.selectors.PROMPT_TEXTAREA
+                )
+                if prompt_textarea:
+                    return True
+                if "accounts.google.com" in self.page.url:
+                    break
+                await asyncio.sleep(0.25)
+            return False
+
+        async def click_cta() -> bool:
+            cta_selectors = [
+                "text=Create with Flow",
+                "text=Get started",
+                "[data-testid*=create]",
+                'button:has-text("Create")',
+            ]
+            for selector in cta_selectors:
+                cta = await self.page.query_selector(selector)
+                if not cta:
+                    continue
+                self._human_click_delay()
+                await cta.click()
+                return True
+            return False
+
+        if await editor_ready(timeout_s=5):
+            return
+
+        for attempt in range(2):
+            clicked = await click_cta()
+            if clicked and await editor_ready(timeout_s=15):
+                return
+            if "accounts.google.com" in self.page.url:
+                await self._prompt_interactive_login(wait_seconds=60)
+                if await editor_ready(timeout_s=30):
+                    return
+            if attempt == 0:
+                await asyncio.sleep(1)
+
+        raise RuntimeError(
+            "Google Flow editor not found after loading tools page and retrying CTA transition. Please verify account access and UI state."
+        )
 
     async def dismiss_consent(self) -> None:
         try:
@@ -352,6 +424,7 @@ class KeyboardProtocol(Protocol):
 
 class PageProtocol(Protocol):
     keyboard: KeyboardProtocol
+    url: str
 
     async def goto(self, url: str, wait_until: str) -> None: ...
 
