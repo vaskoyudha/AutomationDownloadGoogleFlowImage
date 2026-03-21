@@ -162,6 +162,27 @@ class BrowserManager:
                 page = await self._context.new_page()
             return self._context, page
 
+        auth_state_path = os.path.join(
+            os.path.dirname(__file__), "..", "auth_state.json"
+        )
+        if os.path.isfile(auth_state_path):
+            self._playwright = await async_playwright().start()
+            browser = await self._playwright.chromium.launch(
+                headless=self.headless,
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                ],
+                slow_mo=50,
+            )
+            self._context = await browser.new_context(
+                storage_state=auth_state_path,
+                viewport={"width": 1920, "height": 1080},
+            )
+            page = await self._context.new_page()
+            return self._context, page
+
         profile_path = self._find_chrome_profile()
         self._copy_profile_to_temp(profile_path)
         user_data_dir = self._temp_profile_dir
